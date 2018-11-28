@@ -14,7 +14,6 @@ from sklearn.base import BaseEstimator, TransformerMixin
 with warnings.catch_warnings():
     warnings.filterwarnings('ignore', message='numpy.dtype size changed')
     import mendeleev
-from pymatgen.ext.matproj import MPRester
 from gaspy.utils import read_rc
 from gaspy.gasdb import get_catalog_docs, get_mongo_collection
 
@@ -159,10 +158,12 @@ class Fingerprinter(BaseEstimator, TransformerMixin):
 
         # If necessary, find the unknown compositions and save them to the cache
         if unknown_mpids:
-            atoms_db = get_mongo_collection('atoms')
-            with MPRester(read_rc('matproj_api_key')) as rester:
+            with get_mongo_collection('atoms') as atoms_collection:
                 for mpid in unknown_mpids:
-                    compositions_by_mpid[mpid] = atoms_db.find({'fwname.calculation_type':'unit cell optimization','fwname.mpid':mpid})[0]['atoms']['chemical_symbols']
+                    query = {'fwname.calculation_type': 'unit cell optimization',
+                             'fwname.mpid': mpid}
+                    composition = atoms_collection.find(query)[0]['atoms']['chemical_symbols']
+                    compositions_by_mpid[mpid] = composition
 
             with open(CACHE_LOCATION + 'mp_comp_data.pkl', 'wb') as file_handle:
                 pickle.dump(compositions_by_mpid, file_handle)
